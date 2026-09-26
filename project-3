@@ -1,0 +1,101 @@
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+
+job_roles = {
+    "Data Scientist": ["python", "sql", "machine learning", "statistics"],
+    "DevOps Engineer": ["aws", "docker", "kubernetes", "automation"],
+    "Backend Developer": ["java", "python", "sql", "apis"],
+    "Frontend Developer": ["javascript", "react", "css", "html"],
+    "Cloud Architect": ["aws", "cloud computing", "networking", "security"]
+}
+
+DEFAULT_INTERESTS = ["python", "sql", "automation"]
+
+
+def recommend_by_overlap(user_interests, top_n=3):
+    user_set = set(i.lower() for i in user_interests)
+    scores = {}
+
+    for role, tags in job_roles.items():
+        role_set = set(tags)
+        common = user_set & role_set
+        scores[role] = len(common)
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    return ranked[:top_n]
+
+
+def recommend_by_cosine_similarity(user_interests, top_n=3):
+    roles = list(job_roles.keys())
+
+    role_documents = [" ".join(tags) for tags in job_roles.values()]
+    user_document = " ".join(i.lower() for i in user_interests)
+
+    all_documents = role_documents + [user_document]
+
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(all_documents)
+
+    user_vector = tfidf_matrix[-1]
+    role_vectors = tfidf_matrix[:-1]
+
+    similarity_scores = cosine_similarity(
+        user_vector,
+        role_vectors
+    ).flatten()
+
+    ranked = sorted(
+        zip(roles, similarity_scores),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    return ranked[:top_n]
+
+
+def show_results(title, results):
+    print(f"\n--- {title} ---")
+
+    for i, (role, score) in enumerate(results, start=1):
+        if isinstance(score, float):
+            print(f"{i}. {role} (score: {score:.2f})")
+        else:
+            print(f"{i}. {role} (matches: {score})")
+
+
+def main():
+    print("Welcome to the Simple Job Role Recommender!")
+    print("Enter at least 3 interests or skills separated by commas.")
+    print("Example: python, sql, automation\n")
+
+    user_input = input("Your interests: ").strip()
+
+    interests = [
+        x.strip()
+        for x in user_input.split(",")
+        if x.strip()
+    ]
+
+    if len(interests) < 3:
+        print("Less than 3 interests entered. Using default interests.")
+        interests = DEFAULT_INTERESTS
+
+    print(f"\nUsing interests: {interests}")
+
+    overlap_results = recommend_by_overlap(interests)
+    show_results(
+        "Recommendations (Simple Overlap Count)",
+        overlap_results
+    )
+
+    cosine_results = recommend_by_cosine_similarity(interests)
+    show_results(
+        "Recommendations (TF-IDF + Cosine Similarity)",
+        cosine_results
+    )
+
+
+if __name__ == "__main__":
+    main()
