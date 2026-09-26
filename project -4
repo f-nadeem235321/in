@@ -1,0 +1,150 @@
+import cv2
+import pytesseract
+
+
+CONFIDENCE_THRESHOLD = 0.80
+
+CLASSES = [
+    "background", "aeroplane", "bicycle", "bird", "boat",
+    "bottle", "bus", "car", "cat", "chair", "cow",
+    "diningtable", "dog", "horse", "motorbike", "person",
+    "pottedplant", "sheep", "sofa", "train", "tvmonitor"
+]
+
+
+def run_ocr(image_path):
+    image = cv2.imread(image_path)
+
+    if image is None:
+        print(f"Could not open image: {image_path}")
+        return
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    _, thresh = cv2.threshold(
+        blurred,
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    extracted_text = pytesseract.image_to_string(thresh)
+
+    data = pytesseract.image_to_data(
+        thresh,
+        output_type=pytesseract.Output.DICT
+    )
+
+    confidences = []
+
+    for value in data["conf"]:
+        if int(value) != -1:
+            confidences.append(int(value))
+
+    if confidences:
+        avg_confidence = sum(confidences) / len(confidences)
+    else:
+        avg_confidence = 0
+
+    print("\nExtracted Text:")
+    print(extracted_text.strip())
+
+    print(f"\nAverage OCR Confidence: {avg_confidence:.1f}%")
+
+    if avg_confidence >= 80:
+        print("Confidence meets the 80% requirement.")
+    else:
+        print("Confidence is below 80%. Try a clearer image.")
+
+    cv2.imwrite("ocr_preprocessed.png", thresh)
+    print("Saved pre-processed image -> ocr_preprocessed.png")
+
+
+def run_object_detection(
+    image_path,
+    prototxt="deploy.prototxt",
+    model="mobilenet_iter_73000.caffemodel"
+):
+    net = cv2.dnn.readNetFromCaffe(prototxt, model)
+
+    image = cv2.imread(image_path)
+
+    if image is None:
+        print(f"Could not open image: {image_path}")
+        return
+
+    h, w = image.shape[:2]
+
+    blob = cv2.dnn.blobFromImage(
+        image,
+        0.007843,
+        (300, 300),
+        127.5
+    )
+
+    net.setInput(blob)
+    detections = net.forward()
+
+    print("\nDetected objects:")
+    found_any = False
+
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+
+        if confidence >= CONFIDENCE_THRESHOLD:
+            found_any = True
+
+            class_id = int(detections[0, 0, i, 1])
+            label = CLASSES[class_id]
+
+            box = detections[0, 0, i, 3:7] * [w, h, w, h]
+            startX, startY, endX, endY = box.astype("int")
+
+            cv2.rectangle(
+                image,
+                (startX, startY),
+                (endX, endY),
+                (0, 255, 0),
+                2
+            )
+
+            text = f"{label}: {confidence * 100:.1f}%"
+
+            cv2.putText(
+                image,
+                text,
+                (startX, startY - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 0),
+                2
+            )
+
+            print(f"- {label} ({confidence * 100:.1f}% confidence)")
+
+    if not found_any:
+        print("No objects detected above 80% confidence.")
+
+    cv2.imwrite("detection_output.png", image)
+    print("Saved output image -> detection_output.png")
+
+
+def main():
+    print("Project 4: Image & Text Recognition")
+    print("1. OCR")
+    print("2. Object Detection")
+
+    choice = input("Choose an option (1 or 2): ").strip()
+    image_path = input("Enter path to your image: ").strip()
+
+    if choice == "1":
+        run_ocr(image_path)
+    elif choice == "2":
+        run_object_detection(image_path)
+    else:
+        print("Invalid choice.")
+
+
+if __name__ == "__main__":
+    main()
