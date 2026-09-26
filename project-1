@@ -1,0 +1,121 @@
+import datetime
+
+
+PKT = datetime.timezone(datetime.timedelta(hours=5))
+
+responses = {
+    "hello": "hi there! How can I help you today?",
+    "hi": "hello! What can I do for you?",
+    "how are you": "I'm just a bunch of if-else logic, but I'm doing great!",
+    "what is your name": "I'm RuleBot, your friendly rule-based assistant.",
+    "help": "I can tell you the time, date, day, or just chat. Try asking 'what time is it?'",
+    "thanks": "you're welcome!",
+    "thank you": "anytime! Happy to help.",
+    "bye": "goodbye! Have a great day.",
+    "exit": "goodbye! Have a great day.",
+    "quit": "goodbye! Have a great day."
+}
+
+EXIT_COMMANDS = {"bye", "exit", "quit"}
+
+TIME_TRIGGERS = {
+    "time",
+    "what is the time",
+    "what's the time",
+    "current time",
+    "what time is it"
+}
+
+DATE_TRIGGERS = {
+    "date",
+    "what is the date",
+    "what's the date",
+    "today's date",
+    "current date"
+}
+
+DAY_TRIGGERS = {
+    "day",
+    "what day is it",
+    "what day is today",
+    "which day is it"
+}
+
+NAME_PREFIXES = [
+    "my name is ",
+    "i am ",
+    "i'm ",
+    "call me "
+]
+
+
+def get_current_time():
+    return datetime.datetime.now(PKT).strftime("%I:%M %p")
+
+
+def get_current_date():
+    return datetime.datetime.now(PKT).strftime("%d %b %Y")
+
+
+def get_current_day():
+    return datetime.datetime.now(PKT).strftime("%A")
+
+
+def extract_name(raw_text):
+    text = raw_text.strip()
+    lower_text = text.lower()
+
+    for prefix in NAME_PREFIXES:
+        if lower_text.startswith(prefix):
+            return text[len(prefix):].strip().title()
+
+    return text.title()
+
+
+def get_response(user_input, name):
+    for prefix in NAME_PREFIXES:
+        if user_input.startswith(prefix):
+            new_name = extract_name(user_input)
+            return f"Got it, {new_name}! I'll remember that."
+
+    if user_input in TIME_TRIGGERS:
+        return f"{name}, the time is {get_current_time()} in Pakistan."
+
+    if user_input in DATE_TRIGGERS:
+        return f"{name}, the date is {get_current_date()}."
+
+    if user_input in DAY_TRIGGERS:
+        return f"{name}, today is {get_current_day()}."
+
+    reply = responses.get(
+        user_input,
+        "I do not understand. Could you rephrase that?"
+    )
+
+    return f"{name}, {reply}"
+
+
+def run_chatbot():
+    print("RuleBot: Hello!")
+    print("RuleBot: Type bye, exit, or quit to end the conversation.")
+    print("RuleBot: What's your name?")
+
+    raw_name_input = input("You: ")
+    user_name = extract_name(raw_name_input)
+
+    print(f"RuleBot: {user_name}, nice to meet you!")
+
+    while True:
+        raw_input_text = input("You: ")
+        clean_input = raw_input_text.lower().strip()
+
+        if clean_input in EXIT_COMMANDS:
+            print(f"RuleBot: {user_name}, {responses[clean_input]}")
+            break
+
+        reply = get_response(clean_input, user_name)
+        print(f"RuleBot: {reply}")
+
+
+if __name__ == "__main__":
+    run_chatbot()
